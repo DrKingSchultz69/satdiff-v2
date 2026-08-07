@@ -1,0 +1,55 @@
+# Smoke test — NOT a real run. One epoch, tiny eval, throwaway output dirs.
+#
+# Purpose: prove every code path executes on the actual GPU before committing
+# 7 GPU-hours to configs/v1.yaml. Exercises the train step, the Drive
+# checkpoint write, the grid render, --resume, and the full KID+CAS eval.
+#
+#   python -m satdiff.train --config configs/smoke.yaml \
+#       --checkpoint-dir $CKPT_DIR/smoke --results-dir $RESULTS_DIR/smoke
+#
+# Always point it at /smoke subdirs so it can never clobber the real run.
+
+seed: 42
+
+data:
+  root: data/v1_eurosat_rgb_64
+  image_size: 64
+  num_workers: 2
+
+paths:
+  checkpoint_dir: checkpoints/smoke
+  results_dir: results/smoke
+
+model:
+  base_channels: 128
+  block_mults: [1, 2, 2, 4]
+  layers_per_block: 2
+  attention_resolution: 16
+  num_classes: 10
+  label_dropout: 0.1
+
+diffusion:
+  num_train_timesteps: 1000
+  beta_schedule: squaredcos_cap_v2
+  prediction_type: epsilon
+
+train:
+  batch_size: 128
+  lr: 1.0e-4
+  warmup_steps: 500     # never exits warmup in one epoch; fine, we want timing not quality
+  epochs: 1
+  ema_decay: 0.9999
+  mixed_precision: true
+  grad_clip: 1.0
+  grid_every: 1         # render a grid immediately rather than waiting for epoch 5
+  checkpoint_every: 1
+
+sample:
+  num_inference_steps: 50
+  guidance_scale: 2.0
+
+eval:
+  # 5 per class = 50 generated images, so kid_subset_size must not exceed 50.
+  # The KID number this produces is meaningless — we only care that it runs.
+  kid_subset_size: 50
+  num_samples_per_class: 5
