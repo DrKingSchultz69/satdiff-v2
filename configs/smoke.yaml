@@ -34,7 +34,7 @@ diffusion:
   prediction_type: epsilon
 
 train:
-  batch_size: 128
+  batch_size: 64   # must match v1.yaml — the point is to catch v1's OOMs here
   lr: 1.0e-4
   warmup_steps: 500     # never exits warmup in one epoch; fine, we want timing not quality
   epochs: 1

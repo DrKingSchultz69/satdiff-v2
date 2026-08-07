@@ -42,7 +42,7 @@ HF Spaces + ZeroGPU  ──  Gradio app, free shared A100
 | Schedule | Cosine (better than linear at low res — see ADR 0002) |
 | Sampler | DDIM, 50 steps at inference |
 | Optimizer | AdamW, lr 1e-4, cosine warmup 500 steps |
-| Batch | 128 (fits P100 16GB at 64×64) |
+| Batch | 64 (T4 15GB). 128 OOMs on a T4 — measured, not estimated |
 | EMA | 0.9999 — non-optional, samples are much worse without it |
 | Precision | fp16 mixed |
 

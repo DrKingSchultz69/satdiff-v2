@@ -31,7 +31,11 @@ diffusion:
   prediction_type: epsilon
 
 train:
-  batch_size: 128
+  # 64, not the 128 in the TRD. That number was sized for a P100 16GB; on a
+  # Colab T4 (14.56 GiB) the forward pass peaks at 13.7 GiB and OOMs in the
+  # upsample path, where every skip connection is still resident. 64 halves
+  # activation memory to ~7 GiB. Steps per epoch double, total FLOPs don't.
+  batch_size: 64
   lr: 1.0e-4
   warmup_steps: 500
   # 100 not 200: ~7h on a T4, which fits the 8 GPU-hour stop rule in
