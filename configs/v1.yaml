@@ -1,0 +1,50 @@
+# SatDiff v1 — every run is reproducible from this file.
+# Config hash goes in experiments.csv.
+
+seed: 42
+
+data:
+  root: data/v1_eurosat_rgb_64
+  image_size: 64
+  num_workers: 4
+
+paths:
+  # Colab wipes /content every session. Point this at Drive so a disconnect
+  # costs one epoch instead of the whole run:
+  #   --checkpoint-dir /content/drive/MyDrive/satdiff/checkpoints
+  checkpoint_dir: checkpoints
+  results_dir: results
+
+model:
+  base_channels: 128
+  block_mults: [1, 2, 2, 4]
+  layers_per_block: 2
+  attention_resolution: 16
+  num_classes: 10
+  # 10% of training labels are dropped to a null class so classifier-free
+  # guidance is available at sample time without retraining.
+  label_dropout: 0.1
+
+diffusion:
+  num_train_timesteps: 1000
+  beta_schedule: squaredcos_cap_v2   # cosine — see ADR 0002
+  prediction_type: epsilon
+
+train:
+  batch_size: 128
+  lr: 1.0e-4
+  warmup_steps: 500
+  epochs: 200
+  ema_decay: 0.9999
+  mixed_precision: true
+  grad_clip: 1.0
+  grid_every: 5          # fixed-seed sample grid
+  checkpoint_every: 1    # every epoch — free GPU sessions get killed
+
+sample:
+  num_inference_steps: 50   # DDIM
+  guidance_scale: 2.0
+
+eval:
+  kid_subset_size: 1000
+  num_samples_per_class: 270

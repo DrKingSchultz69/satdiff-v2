@@ -1,0 +1,29 @@
+# Secrets — the previous repo leaked a Kaggle API key via notebook outputs
+kaggle.json
+.env
+*.pem
+secrets/
+
+# Data and weights live on HF Hub, not in git
+data/
+*.pth
+*.ckpt
+*.safetensors
+checkpoints/
+wandb/
+
+# Notebook outputs. Strip before committing:
+#   nbstripout --install
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Results — keep the fixed-seed grids, ignore scratch
+results/*
+!results/grids/
