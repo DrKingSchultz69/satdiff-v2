@@ -70,15 +70,19 @@ def save_checkpoint(path, epoch, model, ema, opt, sched, scaler, cfg):
     tmp.replace(path)  # atomic — a killed session never leaves a half-written file
 
 
-def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None) -> None:
+def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
+         results_dir: str | None = None) -> None:
     cfg = yaml.safe_load(cfg_path.read_text())
     if checkpoint_dir:
         cfg["paths"]["checkpoint_dir"] = checkpoint_dir
+    if results_dir:
+        cfg["paths"]["results_dir"] = results_dir
     ckpt = checkpoint_path(cfg)
     grids = grids_dir(cfg)
     chash = config_hash(cfg)
     set_seed(cfg["seed"])
     print(f"checkpoints -> {ckpt.resolve()}")
+    print(f"grids       -> {grids.resolve()}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}  config={chash}")
@@ -161,7 +165,9 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None) -> Non
             pbar.set_postfix(loss=f"{loss.item():.4f}")
 
         avg = running / len(loader)
-        print(f"epoch {epoch+1}  loss {avg:.4f}  {time.time()-t0:.0f}s")
+        secs = time.time() - t0
+        left = (cfg["train"]["epochs"] - epoch - 1) * secs / 3600
+        print(f"epoch {epoch+1}  loss {avg:.4f}  {secs:.0f}s  ~{left:.1f}h remaining")
 
         if (epoch + 1) % cfg["train"]["checkpoint_every"] == 0:
             save_checkpoint(ckpt, epoch, model, ema, opt, sched, scaler, cfg)
@@ -183,5 +189,8 @@ if __name__ == "__main__":
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--checkpoint-dir", default=None,
                     help="Override paths.checkpoint_dir. On Colab point this at Drive.")
+    ap.add_argument("--results-dir", default=None,
+                    help="Override paths.results_dir. On Colab point this at Drive, "
+                         "or the sample grids die with the session.")
     a = ap.parse_args()
-    main(a.config, a.resume, a.checkpoint_dir)
+    main(a.config, a.resume, a.checkpoint_dir, a.results_dir)

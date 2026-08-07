@@ -4,6 +4,11 @@ Class-conditional diffusion model generating 64×64 synthetic satellite imagery 
 
 ## Run it
 
+Training happens on Colab — open `notebooks/colab_train.ipynb`, pick a T4, run
+every cell. Checkpoints and results go to Drive so a disconnect costs one epoch.
+
+To run locally instead:
+
 ```bash
 pip install -r requirements.txt
 export PYTHONPATH=src            # Windows: $env:PYTHONPATH="src"
@@ -26,7 +31,10 @@ Training killed by a session timeout? Add `--resume`.
 | `docs/trd.md` | Stack, model spec, API |
 | `docs/adr/` | Why each decision was made |
 | `results/grids/` | Fixed-seed sample grids, one per 5 epochs |
-| `experiments.csv` | One row per eval run |
+| `results/experiments.csv` | One row per eval run |
+
+Both live under `paths.results_dir`. Override it with `--results-dir` (and
+`--checkpoint-dir`) to write somewhere that survives a Colab session.
 
 ## Status
 

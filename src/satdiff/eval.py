@@ -23,11 +23,14 @@ from .data import denormalize, make_loader
 from .model import build_model, build_schedulers
 from .sample import sample
 
-LOG = Path("experiments.csv")
-
-
 def ckpt_dir(cfg: dict) -> Path:
     return Path(cfg["paths"]["checkpoint_dir"])
+
+
+def log_path(cfg: dict) -> Path:
+    """The durable record of every eval run. Lives under results_dir so that
+    pointing that at Drive keeps it across Colab sessions."""
+    return Path(cfg["paths"]["results_dir"]) / "experiments.csv"
 
 
 def to_uint8(x: torch.Tensor) -> torch.Tensor:
@@ -144,15 +147,16 @@ def run(cfg, device, split, batch=64):
         print("CAS below the 40% abort bar — conditioning is not learning. "
               "Stop and fix the architecture before spending more GPU time.")
 
-    LOG.parent.mkdir(parents=True, exist_ok=True)
-    new = not LOG.exists()
-    with LOG.open("a", newline="") as f:
+    log = log_path(cfg)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    new = not log.exists()
+    with log.open("a", newline="") as f:
         w = csv.writer(f)
         if new:
             w.writerow(["epoch", "split", "kid_mean", "kid_std", "cas", "checkpoint"])
         w.writerow([epoch + 1, split, f"{kid_mean:.6f}", f"{kid_std:.6f}",
                     f"{cas:.4f}", str(ckpt_dir(cfg) / "last.pt")])
-    print(f"appended to {LOG}")
+    print(f"appended to {log.resolve()}")
 
 
 if __name__ == "__main__":
@@ -161,8 +165,12 @@ if __name__ == "__main__":
     ap.add_argument("--split", default="val", choices=["val", "test"],
                     help="test is touched ONCE, for the model card")
     ap.add_argument("--checkpoint-dir", default=None)
+    ap.add_argument("--results-dir", default=None,
+                    help="Where experiments.csv lands. On Colab point this at Drive.")
     a = ap.parse_args()
     cfg = yaml.safe_load(a.config.read_text())
     if a.checkpoint_dir:
         cfg["paths"]["checkpoint_dir"] = a.checkpoint_dir
+    if a.results_dir:
+        cfg["paths"]["results_dir"] = a.results_dir
     run(cfg, torch.device("cuda" if torch.cuda.is_available() else "cpu"), a.split)

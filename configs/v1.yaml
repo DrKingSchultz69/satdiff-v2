@@ -6,7 +6,7 @@ seed: 42
 data:
   root: data/v1_eurosat_rgb_64
   image_size: 64
-  num_workers: 4
+  num_workers: 2   # Colab T4 runtimes have 2 vCPUs; more workers just thrash
 
 paths:
   # Colab wipes /content every session. Point this at Drive so a disconnect
@@ -34,7 +34,11 @@ train:
   batch_size: 128
   lr: 1.0e-4
   warmup_steps: 500
-  epochs: 200
+  # 100 not 200: ~7h on a T4, which fits the 8 GPU-hour stop rule in
+  # docs/eval-plan.md. The cosine LR is sized to this number, so it anneals
+  # to zero exactly when training actually ends rather than being abandoned
+  # mid-schedule at a high LR.
+  epochs: 100
   ema_decay: 0.9999
   mixed_precision: true
   grad_clip: 1.0
