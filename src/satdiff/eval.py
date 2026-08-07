@@ -107,7 +107,6 @@ def get_classifier(cfg, device):
 
 # --------------------------------------------------------------------- eval
 
-@torch.no_grad()
 def run(cfg, device, split, batch=64):
     model, epoch = load_model(cfg, device)
     _, ddim = build_schedulers(cfg)
@@ -116,26 +115,29 @@ def run(cfg, device, split, batch=64):
 
     kid = KernelInceptionDistance(subset_size=cfg["eval"]["kid_subset_size"],
                                   normalize=False).to(device)
+    # Not under no_grad: on the first run this trains the classifier, which needs
+    # backward. Everything after it is inference and takes its own no_grad.
     net = get_classifier(cfg, device)
 
-    for x, _ in tqdm(make_loader(cfg["data"]["root"], split, 256,
-                                 num_workers=cfg["data"]["num_workers"], shuffle=False),
-                     desc=f"real ({split})"):
-        kid.update(to_uint8(x).to(device), real=True)
+    with torch.no_grad():
+        for x, _ in tqdm(make_loader(cfg["data"]["root"], split, 256,
+                                     num_workers=cfg["data"]["num_workers"], shuffle=False),
+                         desc=f"real ({split})"):
+            kid.update(to_uint8(x).to(device), real=True)
 
-    hits = total = 0
-    for cls_idx, cls_name in enumerate(classes):
-        remaining = n_per
-        pbar = tqdm(total=n_per, desc=f"gen {cls_name}")
-        while remaining > 0:
-            n = min(batch, remaining)
-            imgs = sample(model, ddim, cfg, [cls_idx] * n, device, progress=False)
-            kid.update(to_uint8(imgs), real=False)
-            hits += (net(imgs).argmax(1) == cls_idx).sum().item()
-            total += n
-            remaining -= n
-            pbar.update(n)
-        pbar.close()
+        hits = total = 0
+        for cls_idx, cls_name in enumerate(classes):
+            remaining = n_per
+            pbar = tqdm(total=n_per, desc=f"gen {cls_name}")
+            while remaining > 0:
+                n = min(batch, remaining)
+                imgs = sample(model, ddim, cfg, [cls_idx] * n, device, progress=False)
+                kid.update(to_uint8(imgs), real=False)
+                hits += (net(imgs).argmax(1) == cls_idx).sum().item()
+                total += n
+                remaining -= n
+                pbar.update(n)
+            pbar.close()
 
     kid_mean, kid_std = kid.compute()
     cas = hits / total
