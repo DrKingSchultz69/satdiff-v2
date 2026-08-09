@@ -12,7 +12,10 @@ hub:
   # Kaggle wipes /kaggle/working between sessions and has no Drive to fall
   # back on, so the Hub is the only thing making --resume work there.
   # Needs a WRITE token: huggingface-cli login, or the HF_TOKEN env var.
-  repo_id: DrKingSchultz69/satdiff-v1
+  # Hugging Face namespace, NOT the GitHub one. They differ here: GitHub is
+  # DrKingSchultz69, HF is shairaam. Getting this wrong gives a 403 at
+  # create_repo, which the preflight catches before any GPU time is spent.
+  repo_id: shairaam/satdiff-v1
   enabled: true
 
 paths:
