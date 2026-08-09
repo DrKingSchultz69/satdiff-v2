@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import random
+import shutil
 import time
 from pathlib import Path
 
@@ -29,6 +30,50 @@ from .sample import fixed_seed_grid
 
 def checkpoint_path(cfg: dict) -> Path:
     return Path(cfg["paths"]["checkpoint_dir"]) / "last.pt"
+
+
+def hub_repo(cfg: dict) -> str | None:
+    """Hub repo id, or None if Hub sync is off."""
+    h = cfg.get("hub") or {}
+    return h.get("repo_id") if h.get("enabled", True) else None
+
+
+def hub_push(cfg: dict, path: Path, epoch: int) -> None:
+    """Upload the checkpoint. Never fatal — a failed push must not kill a run
+    that is otherwise fine. The local copy is still on disk either way."""
+    repo = hub_repo(cfg)
+    if not repo:
+        return
+    try:
+        from huggingface_hub import HfApi
+        HfApi().upload_file(
+            path_or_fileobj=str(path), path_in_repo="last.pt",
+            repo_id=repo, repo_type="model",
+            commit_message=f"epoch {epoch + 1}",
+        )
+        print(f"  pushed epoch {epoch + 1} -> {repo}")
+    except Exception as e:
+        print(f"  hub push failed ({e.__class__.__name__}: {e}); continuing")
+
+
+def hub_pull(cfg: dict, path: Path) -> bool:
+    """Fetch last.pt from the Hub when it is not on disk. This is what makes
+    --resume work on Kaggle, where /kaggle/working is wiped between sessions
+    and there is no Drive to fall back on."""
+    repo = hub_repo(cfg)
+    if not repo or path.exists():
+        return path.exists()
+    try:
+        from huggingface_hub import hf_hub_download
+        print(f"no local checkpoint; trying {repo}")
+        src = hf_hub_download(repo_id=repo, filename="last.pt", repo_type="model")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, path)
+        print(f"pulled checkpoint from {repo}")
+        return True
+    except Exception as e:
+        print(f"hub pull failed ({e.__class__.__name__}: {e})")
+        return False
 
 
 def grids_dir(cfg: dict) -> Path:
@@ -110,6 +155,8 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     start_epoch = 0
+    if resume:
+        hub_pull(cfg, ckpt)
     if resume and ckpt.exists():
         ck = torch.load(ckpt, map_location=device, weights_only=False)
         model.load_state_dict(ck["model"])
@@ -171,6 +218,11 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
 
         if (epoch + 1) % cfg["train"]["checkpoint_every"] == 0:
             save_checkpoint(ckpt, epoch, model, ema, opt, sched, scaler, cfg)
+            # Pushing 1.1 GB takes longer than an epoch takes to train, so this
+            # is deliberately less frequent than the local save. Worst case you
+            # lose hub_push_every epochs, not the run.
+            if (epoch + 1) % cfg["train"].get("hub_push_every", 5) == 0:
+                hub_push(cfg, ckpt, epoch)
 
         if (epoch + 1) % cfg["train"]["grid_every"] == 0:
             ema.store(model.parameters())
@@ -179,6 +231,10 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
             save_image(denormalize(grid), grids / f"epoch_{epoch+1:03d}.png", nrow=4)
             ema.restore(model.parameters())
             print(f"  wrote {grids / f'epoch_{epoch+1:03d}.png'}")
+
+    # Always push the final state, whatever hub_push_every last landed on.
+    if ckpt.exists():
+        hub_push(cfg, ckpt, cfg["train"]["epochs"] - 1)
 
     print("\nTraining done. Next: python -m satdiff.eval --config configs/v1.yaml")
 

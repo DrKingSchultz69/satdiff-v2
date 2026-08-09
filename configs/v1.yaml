@@ -8,6 +8,13 @@ data:
   image_size: 64
   num_workers: 2   # Colab T4 runtimes have 2 vCPUs; more workers just thrash
 
+hub:
+  # Kaggle wipes /kaggle/working between sessions and has no Drive to fall
+  # back on, so the Hub is the only thing making --resume work there.
+  # Needs a WRITE token: huggingface-cli login, or the HF_TOKEN env var.
+  repo_id: DrKingSchultz69/satdiff-v1
+  enabled: true
+
 paths:
   # Colab wipes /content every session. Point this at Drive so a disconnect
   # costs one epoch instead of the whole run:
@@ -48,6 +55,7 @@ train:
   grad_clip: 1.0
   grid_every: 5          # fixed-seed sample grid
   checkpoint_every: 1    # every epoch — free GPU sessions get killed
+  hub_push_every: 5      # 1.1 GB upload; too slow to do every epoch
 
 sample:
   num_inference_steps: 50   # DDIM

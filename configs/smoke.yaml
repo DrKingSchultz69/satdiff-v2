@@ -16,6 +16,9 @@ data:
   image_size: 64
   num_workers: 2
 
+hub:
+  enabled: false   # never let a dry run overwrite the real checkpoint on the Hub
+
 paths:
   checkpoint_dir: checkpoints/smoke
   results_dir: results/smoke
