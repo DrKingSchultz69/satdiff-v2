@@ -38,6 +38,36 @@ def hub_repo(cfg: dict) -> str | None:
     return h.get("repo_id") if h.get("enabled", True) else None
 
 
+def hub_preflight(cfg: dict) -> None:
+    """Prove the token can write BEFORE burning GPU hours.
+
+    hub_push deliberately swallows errors so one flaky upload cannot kill a
+    good run — but that means a bad token degrades silently into "no backup at
+    all", which is how a finished 100-epoch run gets lost to a wiped session.
+    Checking once at startup turns that into an immediate, obvious failure.
+    """
+    repo = hub_repo(cfg)
+    if not repo:
+        print("hub sync OFF — checkpoints are local only.")
+        return
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        who = api.whoami()          # reads HF_TOKEN from the environment
+        api.create_repo(repo, repo_type="model", private=True, exist_ok=True)
+        print(f"hub sync ON  -> {repo}  (as {who['name']})")
+    except Exception as e:
+        raise SystemExit(
+            f"\nHub preflight FAILED: {e.__class__.__name__}: {e}\n\n"
+            f"  Cannot write to {repo}, so checkpoints would not survive this\n"
+            f"  session. Refusing to start — fix the token first:\n"
+            f"    1. hf.co/settings/tokens -> New token -> type WRITE\n"
+            f"    2. Kaggle: Add-ons -> Secrets -> HF_TOKEN -> paste -> Save\n"
+            f"    3. Re-run the setup cell so the new value is loaded\n\n"
+            f"  To train anyway with no backup, set hub.enabled: false.\n"
+        )
+
+
 def hub_push(cfg: dict, path: Path, epoch: int) -> None:
     """Upload the checkpoint. Never fatal — a failed push must not kill a run
     that is otherwise fine. The local copy is still on disk either way."""
@@ -128,6 +158,9 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
     set_seed(cfg["seed"])
     print(f"checkpoints -> {ckpt.resolve()}")
     print(f"grids       -> {grids.resolve()}")
+
+    # Before anything expensive: if the run cannot be backed up, say so now.
+    hub_preflight(cfg)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}  config={chash}")
@@ -233,7 +266,9 @@ def main(cfg_path: Path, resume: bool, checkpoint_dir: str | None = None,
             print(f"  wrote {grids / f'epoch_{epoch+1:03d}.png'}")
 
     # Always push the final state, whatever hub_push_every last landed on.
+    # This is the one that matters: the finished model.
     if ckpt.exists():
+        print("\npushing final checkpoint...")
         hub_push(cfg, ckpt, cfg["train"]["epochs"] - 1)
 
     print("\nTraining done. Next: python -m satdiff.eval --config configs/v1.yaml")
