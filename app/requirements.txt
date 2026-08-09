@@ -2,9 +2,13 @@
 # so the Space cannot drift from the code the metrics were measured on.
 git+https://github.com/DrKingSchultz69/satdiff-v2.git
 
-gradio>=4.44
+# Pinned, not floating. gradio 4.44 imports HfFolder, which huggingface_hub
+# removed in 1.0 — an unbounded `huggingface_hub>=0.23` resolves to 1.x and the
+# Space dies at `import gradio` before any of this code runs.
+gradio==4.44.1
+huggingface_hub>=0.23,<1.0
+
 torch>=2.1
 torchvision>=0.16
-diffusers>=0.27
+diffusers>=0.27,<0.36
 pillow>=10.0
-huggingface_hub>=0.23
