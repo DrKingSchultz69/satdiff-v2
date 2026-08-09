@@ -8,7 +8,7 @@ sdk_version: 4.44.0
 app_file: app.py
 pinned: false
 license: mit
-short_description: Synthetic 64x64 satellite tiles across 10 EuroSAT land-use classes
+short_description: Synthetic 64x64 satellite tiles, 10 EuroSAT classes
 ---
 
 # SatDiff
