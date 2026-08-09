@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "satdiff"
+version = "1.0.0"
+description = "Class-conditional diffusion model for 64x64 EuroSAT land-use tiles"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "diffusers>=0.27",
+    "pyyaml>=6.0",
+    "tqdm>=4.66",
+    "pillow>=10.0",
+    "numpy>=1.24",
+    "huggingface_hub>=0.23",
+]
+
+# Exists so the Gradio Space can `pip install git+https://...` and reuse the
+# same sampling code that was evaluated, rather than duplicating it. Note that
+# torchmetrics is deliberately not a runtime dependency: it is only needed for
+# eval, and the Space should not pull it.
+
+[tool.setuptools.packages.find]
+where = ["src"]

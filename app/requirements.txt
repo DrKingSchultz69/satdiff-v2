@@ -1,0 +1,10 @@
+# Installs the same satdiff package that was evaluated, straight from the repo,
+# so the Space cannot drift from the code the metrics were measured on.
+git+https://github.com/DrKingSchultz69/satdiff-v2.git
+
+gradio>=4.44
+torch>=2.1
+torchvision>=0.16
+diffusers>=0.27
+pillow>=10.0
+huggingface_hub>=0.23
