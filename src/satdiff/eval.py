@@ -22,6 +22,7 @@ from tqdm.auto import tqdm
 from .data import denormalize, make_loader
 from .model import build_model, build_schedulers
 from .sample import sample
+from .train import hub_pull
 
 def ckpt_dir(cfg: dict) -> Path:
     return Path(cfg["paths"]["checkpoint_dir"])
@@ -38,7 +39,18 @@ def to_uint8(x: torch.Tensor) -> torch.Tensor:
 
 
 def load_model(cfg, device, use_ema=True):
-    ck = torch.load(ckpt_dir(cfg) / "last.pt", map_location=device, weights_only=False)
+    # Same Hub fallback as training. Eval usually runs in a fresh session after
+    # the one that trained has been wiped, so "no local checkpoint" is the
+    # normal case here, not the exceptional one.
+    path = ckpt_dir(cfg) / "last.pt"
+    if not path.exists():
+        hub_pull(cfg, path)
+    if not path.exists():
+        raise SystemExit(
+            f"No checkpoint at {path} and none on the Hub.\n"
+            f"  Train first, or point --checkpoint-dir at one that exists."
+        )
+    ck = torch.load(path, map_location=device, weights_only=False)
     model = build_model(cfg).to(device)
     model.load_state_dict(ck["model"])
     if use_ema:
@@ -51,10 +63,18 @@ def load_model(cfg, device, use_ema=True):
 
 # ---------------------------------------------------------------- classifier
 
-def train_classifier(cfg, device, epochs=8):
-    """ResNet-18 on real data. Must hit >90% on real test or CAS is meaningless."""
+def train_classifier(cfg, device, epochs=15):
+    """ResNet-18 on real data. Must hit >90% on real test or CAS is meaningless.
+
+    ImageNet-pretrained, not from scratch. From scratch at 8 epochs this reached
+    only 81.7% on real test, which put CAS below its own validity threshold and
+    made the generator look worse than it is: a classifier that misreads 18% of
+    real tiles misreads correctly-conditioned generated ones at a similar rate.
+    """
     num_classes = cfg["model"]["num_classes"]
-    net = models.resnet18(weights=None, num_classes=num_classes).to(device)
+    net = models.resnet18(weights="IMAGENET1K_V1")
+    net.fc = nn.Linear(net.fc.in_features, num_classes)
+    net = net.to(device)
     train = make_loader(cfg["data"]["root"], "train", 128,
                         num_workers=cfg["data"]["num_workers"])
     opt = torch.optim.AdamW(net.parameters(), lr=3e-4)
@@ -97,11 +117,16 @@ def get_classifier(cfg, device):
     num_classes = cfg["model"]["num_classes"]
     cls_ckpt = ckpt_dir(cfg) / "classifier.pt"
     if cls_ckpt.exists():
-        net = models.resnet18(weights=None, num_classes=num_classes).to(device)
         ck = torch.load(cls_ckpt, map_location=device, weights_only=False)
-        net.load_state_dict(ck["model"])
-        print(f"loaded classifier (real-test acc {ck['real_test_acc']:.1%})")
-        return net.eval()
+        # Never reuse a cached classifier that failed its own validity bar —
+        # otherwise one bad training run silently poisons every later CAS.
+        if ck["real_test_acc"] >= 0.90:
+            net = models.resnet18(weights=None, num_classes=num_classes).to(device)
+            net.load_state_dict(ck["model"])
+            print(f"loaded classifier (real-test acc {ck['real_test_acc']:.1%})")
+            return net.eval()
+        print(f"cached classifier is only {ck['real_test_acc']:.1%} on real test "
+              f"(<90%); retraining rather than trusting it.")
     return train_classifier(cfg, device)
 
 
