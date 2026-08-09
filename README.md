@@ -40,9 +40,15 @@ Both live under `paths.results_dir`. Override it with `--results-dir` (and
 
 - [x] Docs
 - [x] Data pipeline, model, training, eval
-- [ ] First training run
+- [x] First training run — 100 epochs, ~12 GPU-hours
+- [x] Evaluated: KID 0.0103, CAS 89.4% on test (both in the "good" band)
+- [x] Model card
 - [ ] Gradio app
 - [ ] Deployed to HF Spaces
+
+Weights live at `shairaam/satdiff-v1` on the HF Hub. Training pushes there
+every 5 epochs; `--resume` pulls from there when there is no local checkpoint,
+which is what makes a wiped Kaggle session survivable.
 
 ## Data
 
