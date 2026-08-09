@@ -124,16 +124,17 @@ CAS. Always check the classifier's real-test accuracy before trusting CAS.
 
 - **64×64 only.** Not photorealistic, and not comparable to real Sentinel-2
   imagery at native detail. Plausible tiles, not real observations.
-- **Global color instability.** At epoch 45, structurally correct tiles
-  sometimes carried strong pink, purple, or orange casts. Structure is learned
-  faster than global color. A likely contributor is non-zero terminal SNR in
-  the cosine schedule, which limits how much the model can control overall
-  brightness; `rescale_betas_zero_snr` would be the first thing to try.
-- **The epoch-100 fixed-seed grid was not inspected.** Sample grids lived only
-  in an ephemeral working directory that was wiped. Metrics are strong and KID
-  would likely reflect severe mode collapse, but the eye test — which catches
-  collapse that metrics miss — has not been re-run at epoch 100. Regenerate it
-  from the checkpoint before relying on this model.
+- **Residual color tint.** At epoch 45, structurally correct tiles frequently
+  carried strong pink, purple, or orange casts — structure is learned well
+  before global color. By epoch 100 this had largely resolved, with occasional
+  mild tinting remaining (most visibly on Pasture). If pushing further, the
+  first thing to try is `rescale_betas_zero_snr`: non-zero terminal SNR in the
+  cosine schedule limits how much the model can control overall brightness.
+- **Mode collapse: checked, not present.** The epoch-100 fixed-seed grid (10
+  classes × 4 fixed seeds) shows distinct samples within every class row, and
+  clearly differentiated structure across rows — roads for Highway, dense
+  street texture for Residential, flat uniform water for SeaLake. This check
+  matters because KID can look healthy while a model quietly collapses.
 - **Class confusion is expected between PermanentCrop and AnnualCrop.** These
   overlap in the source data. Check the confusion matrix before attributing
   such errors to the generator.
