@@ -4,7 +4,7 @@ emoji: 🛰️
 colorFrom: blue
 colorTo: green
 sdk: gradio
-sdk_version: 4.44.0
+sdk_version: 6.22.0
 app_file: app.py
 pinned: false
 license: mit
@@ -27,6 +27,12 @@ provenance metadata.
 ## Deploying
 
 This directory is the Space. The frontmatter above is what HF reads to build it.
+
+`sdk_version` is deliberately omitted so HF installs the gradio version its own
+image is built around. Pinning it caused three separate failures — gradio 4.44
+against huggingface_hub 1.0 (`HfFolder` gone), against pydantic 2.10 (bool
+`additionalProperties`), and gradio 5.0.1 against a newer starlette
+(`TemplateResponse` argument order). Each pin fixed one layer and broke the next.
 
 1. Create a Space: SDK **Gradio**, hardware **ZeroGPU** (free for public Spaces)
 2. Push `app.py`, `requirements.txt`, and this README to the Space repo

@@ -13,6 +13,19 @@ import tempfile
 import time
 from pathlib import Path
 
+# `spaces` MUST be imported before torch or anything else that touches CUDA —
+# it raises outright if a CUDA context already exists. That is why this sits
+# above the other third-party imports instead of in alphabetical order.
+# It only exists on Spaces; locally, fall back to a no-op decorator so the same
+# file runs unchanged on a laptop.
+try:
+    import spaces
+
+    gpu = spaces.GPU(duration=60)
+except ImportError:                                    # pragma: no cover
+    def gpu(fn):
+        return fn
+
 import gradio as gr
 import torch
 from diffusers.training_utils import EMAModel
@@ -23,16 +36,6 @@ from PIL.PngImagePlugin import PngInfo
 from satdiff.data import denormalize
 from satdiff.model import build_model, build_schedulers
 from satdiff.sample import sample
-
-# ZeroGPU only exists on Spaces. Locally, fall back to a decorator that does
-# nothing so the same file runs on a laptop.
-try:
-    import spaces
-
-    gpu = spaces.GPU(duration=60)
-except ImportError:                                    # pragma: no cover
-    def gpu(fn):
-        return fn
 
 REPO_ID = "shairaam/satdiff-v1"
 MODEL_VERSION = "satdiff-v1 (epoch 100)"
@@ -183,4 +186,8 @@ with gr.Blocks(title="SatDiff") as demo:
     go.click(generate, [cls, n, sd], [out, info])
 
 if __name__ == "__main__":
-    demo.launch()
+    # allowed_paths is required, not optional: gradio refuses to serve files
+    # from arbitrary locations, and generate() writes its PNGs to OUT_DIR under
+    # the system temp dir. Without this the Space starts fine and then fails
+    # only when someone actually clicks Generate.
+    demo.launch(allowed_paths=[str(OUT_DIR)])

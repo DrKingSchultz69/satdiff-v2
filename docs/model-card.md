@@ -124,17 +124,29 @@ CAS. Always check the classifier's real-test accuracy before trusting CAS.
 
 - **64×64 only.** Not photorealistic, and not comparable to real Sentinel-2
   imagery at native detail. Plausible tiles, not real observations.
-- **Residual color tint.** At epoch 45, structurally correct tiles frequently
-  carried strong pink, purple, or orange casts — structure is learned well
-  before global color. By epoch 100 this had largely resolved, with occasional
-  mild tinting remaining (most visibly on Pasture). If pushing further, the
-  first thing to try is `rescale_betas_zero_snr`: non-zero terminal SNR in the
-  cosine schedule limits how much the model can control overall brightness.
-- **Mode collapse: checked, not present.** The epoch-100 fixed-seed grid (10
-  classes × 4 fixed seeds) shows distinct samples within every class row, and
-  clearly differentiated structure across rows — roads for Highway, dense
-  street texture for Residential, flat uniform water for SeaLake. This check
-  matters because KID can look healthy while a model quietly collapses.
+- **Global colour is unreliable. This is the main defect.** Structure is
+  learned; hue is close to a coin flip. Sampling 4 images of Forest at epoch
+  100 gave one plausible green canopy and three blue-grey tiles with correct
+  forest-like texture but no forest colour. The same applies at epoch 45, where
+  it showed as pink and orange casts instead.
+
+  Suspected cause is non-zero terminal SNR in the cosine schedule: at the last
+  training timestep the sample is not quite pure noise, so the model never
+  learns to set global brightness from nothing, and at inference — which does
+  start from pure noise — the overall colour drifts. Fix to try is
+  `rescale_betas_zero_snr=True` plus DDIM `timestep_spacing="trailing"`.
+
+- **The metrics do not capture this, and should not be read as if they do.**
+  CAS 89.4% means a ResNet-18 trained on real EuroSAT still labels these tiles
+  correctly — it keys on texture and brightness, not hue. KID 0.0103 is
+  computed over 2,700 images spanning all 10 classes in Inception feature
+  space, where a colour shift on a subset barely registers. Both numbers are
+  real; neither is evidence that the images look right. Look at the samples.
+
+- **Mode collapse: checked, not present.** The epoch-100 fixed-seed grid shows
+  distinct samples within every class row and differentiated structure across
+  rows — roads for Highway, dense street texture for Residential, flat uniform
+  water for SeaLake.
 - **Class confusion is expected between PermanentCrop and AnnualCrop.** These
   overlap in the source data. Check the confusion matrix before attributing
   such errors to the generator.

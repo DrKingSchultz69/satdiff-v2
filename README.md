@@ -43,8 +43,13 @@ Both live under `paths.results_dir`. Override it with `--results-dir` (and
 - [x] First training run — 100 epochs, ~12 GPU-hours
 - [x] Evaluated: KID 0.0103, CAS 89.4% on test (both in the "good" band)
 - [x] Model card
-- [ ] Gradio app
-- [ ] Deployed to HF Spaces
+- [x] Gradio app
+- [x] Deployed to HF Spaces — https://huggingface.co/spaces/shairaam/satdiff
+
+Live at **https://huggingface.co/spaces/shairaam/satdiff**. The Space needs
+`sdk_version: 6.22.0` and no dependency pins: gradio 4.x cannot run on HF's
+current image, because starlette 1.x reordered `TemplateResponse`'s arguments
+and every page request 500s.
 
 Weights live at `shairaam/satdiff-v1` on the HF Hub. Training pushes there
 every 5 epochs; `--resume` pulls from there when there is no local checkpoint,

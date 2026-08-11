@@ -2,13 +2,15 @@
 # so the Space cannot drift from the code the metrics were measured on.
 git+https://github.com/DrKingSchultz69/satdiff-v2.git
 
-# Pinned, not floating. gradio 4.44 imports HfFolder, which huggingface_hub
-# removed in 1.0 — an unbounded `huggingface_hub>=0.23` resolves to 1.x and the
-# Space dies at `import gradio` before any of this code runs.
-gradio==4.44.1
-huggingface_hub>=0.23,<1.0
-
-torch>=2.1
-torchvision>=0.16
-diffusers>=0.27,<0.36
-pillow>=10.0
+# Deliberately no pins here, and no gradio line at all.
+#
+# gradio comes from `sdk_version` in the README frontmatter; listing it here
+# too makes pip unsolvable. And current gradio already requires
+# huggingface_hub>=1.16, starlette>=1.0.1, pydantic>=2.0 — pinning any of them
+# below that only recreates the version fights that cost several rebuilds:
+# gradio 4.44 wanted HfFolder (gone in hub 1.0), then choked on pydantic
+# 2.10's bool additionalProperties, then gradio 5.0.1 hit starlette's new
+# TemplateResponse argument order. Let gradio's own constraints resolve.
+torchvision
+diffusers
+pillow
